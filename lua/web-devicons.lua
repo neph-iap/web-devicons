@@ -31,9 +31,9 @@ local global_opts = {
 local function refresh_icons(background)
   local theme
   if background == "light" then
-    theme = require "nvim-web-devicons.icons-light"
+    theme = require "web-devicons.icons-light"
   else
-    theme = require "nvim-web-devicons.icons-default"
+    theme = require "web-devicons.icons-default"
   end
 
   icons_by_filename = theme.icons_by_filename
