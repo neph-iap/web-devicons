@@ -1,5 +1,9 @@
 local M = {}
 
+local vim = require "vim"
+
+local highlights = {}
+
 -- When adding new icons, remember to add an entry to the `filetypes` table, if applicable.
 local icons, icons_by_filename, icons_by_file_extension, icons_by_operating_system
 
@@ -22,9 +26,11 @@ local global_opts = {
 }
 
 -- Set the current icons tables, depending on the 'background' option.
-local function refresh_icons()
+--
+---@param background "light" | "dark"
+local function refresh_icons(background)
   local theme
-  if vim.o.background == "light" then
+  if background == "light" then
     theme = require "nvim-web-devicons.icons-light"
   else
     theme = require "nvim-web-devicons.icons-default"
@@ -246,70 +252,13 @@ local function get_highlight_name(data)
   return data.name and "DevIcon" .. data.name
 end
 
-local nvim_set_hl = vim.api.nvim_set_hl
-local function set_up_highlight(icon_data)
-  if not global_opts.color_icons then
-    icon_data = default_icon
-  end
-
-  local hl_group = get_highlight_name(icon_data)
-  if hl_group and (icon_data.color or icon_data.cterm_color) then
-    nvim_set_hl(0, get_highlight_name(icon_data), {
-      fg = icon_data.color,
-      ctermfg = tonumber(icon_data.cterm_color),
-    })
-  end
-end
-
-local nvim_get_hl_by_name = vim.api.nvim_get_hl_by_name
-local function highlight_exists(group)
-  if not group then
-    return
-  end
-
-  local ok, hl = pcall(nvim_get_hl_by_name, group, true)
-  return ok and not (hl or {})[true]
-end
-
-function M.set_up_highlights(allow_override)
-  if not global_opts.color_icons then
-    set_up_highlight(default_icon)
-    return
-  end
-
-  for _, icon_data in pairs(icons) do
-    local has_color = icon_data.color or icon_data.cterm_color
-    local name_valid = icon_data.name
-    local defined_before = highlight_exists(get_highlight_name(icon_data))
-    if has_color and name_valid and (allow_override or not defined_before) then
-      set_up_highlight(icon_data)
-    end
-  end
-end
-
-local function get_highlight_foreground(icon_data)
-  if not global_opts.color_icons then
-    icon_data = default_icon
-  end
-
-  return string.format("#%06x", nvim_get_hl_by_name(get_highlight_name(icon_data), true).foreground)
-end
-
-local function get_highlight_ctermfg(icon_data)
-  if not global_opts.color_icons then
-    icon_data = default_icon
-  end
-
-  return nvim_get_hl_by_name(get_highlight_name(icon_data), false).foreground
-end
-
 local loaded = false
 
 function M.has_loaded()
   return loaded
 end
 
-local if_nil = vim.F.if_nil
+local if_nil = vim.if_nil
 function M.setup(opts)
   if loaded then
     return
@@ -356,12 +305,6 @@ function M.setup(opts)
   icons[1] = default_icon
 
   M.set_up_highlights()
-
-  vim.api.nvim_create_autocmd("ColorScheme", {
-    desc = "Re-apply icon colors after changing colorschemes",
-    group = vim.api.nvim_create_augroup("NvimWebDevicons", { clear = true }),
-    callback = M.set_up_highlights,
-  })
 end
 
 function M.get_default_icon()
@@ -421,11 +364,65 @@ function M.get_icon_name_by_filetype(ft)
   return filetypes[ft]
 end
 
+local function set_up_highlight(icon_data)
+  if not global_opts.color_icons then
+    icon_data = default_icon
+  end
+
+  local hl_group = get_highlight_name(icon_data)
+  if hl_group and (icon_data.color or icon_data.cterm_color) then
+    highlights[get_highlight_name(icon_data)] = {
+      fg = icon_data.color,
+      ctermfg = tonumber(icon_data.cterm_color),
+    }
+  end
+end
+
+local function highlight_exists(group)
+  if not group then
+    return
+  end
+
+  return highlights[group]
+end
+
+function M.set_up_highlights(allow_override)
+  if not global_opts.color_icons then
+    set_up_highlight(default_icon)
+    return
+  end
+
+  for _, icon_data in pairs(icons) do
+    local has_color = icon_data.color or icon_data.cterm_color
+    local name_valid = icon_data.name
+    local defined_before = highlight_exists(get_highlight_name(icon_data))
+    if has_color and name_valid and (allow_override or not defined_before) then
+      set_up_highlight(icon_data)
+    end
+  end
+end
+
 function M.get_icon_by_filetype(ft, opts)
   local name = M.get_icon_name_by_filetype(ft)
   opts = opts or {}
   opts.strict = false
   return M.get_icon(name or "", nil, opts)
+end
+
+local function get_highlight_foreground(icon_data)
+  if not global_opts.color_icons then
+    icon_data = default_icon
+  end
+
+  return highlights[get_highlight_name(icon_data)].foreground
+end
+
+local function get_highlight_ctermfg(icon_data)
+  if not global_opts.color_icons then
+    icon_data = default_icon
+  end
+
+  return highlights[get_highlight_name(icon_data)].foreground
 end
 
 function M.get_icon_colors(name, ext, opts)
@@ -499,17 +496,11 @@ function M.set_default_icon(icon, color, cterm_color)
 end
 
 -- Load the icons already, the loaded tables depend on the 'background' setting.
-refresh_icons()
+refresh_icons "dark"
 
-function M.refresh()
-  refresh_icons()
+function M.refresh(theme)
+  refresh_icons(theme)
   M.set_up_highlights(true)
 end
-
--- Change icon set on background change
-vim.api.nvim_create_autocmd("OptionSet", {
-  pattern = "background",
-  callback = M.refresh,
-})
 
 return M
