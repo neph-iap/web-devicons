@@ -1,6 +1,6 @@
 local M = {}
 
-local vim = require "vim"
+local vim = require "lua/vim"
 
 local highlights = {}
 
@@ -31,9 +31,9 @@ local global_opts = {
 local function refresh_icons(background)
   local theme
   if background == "light" then
-    theme = require "web-devicons.icons-light"
+    theme = require "lua/web-devicons.icons-light"
   else
-    theme = require "web-devicons.icons-default"
+    theme = require "lua/web-devicons.icons-default"
   end
 
   icons_by_filename = theme.icons_by_filename
