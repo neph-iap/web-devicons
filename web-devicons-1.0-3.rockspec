@@ -1,5 +1,5 @@
 package = "web-devicons"
-version = "1.0-1"
+version = "1.0-3"
 source = {
   url = "git://github.com/neph-iap/web-devicons",
 }
